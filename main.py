@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from routers import workouts, exercises, users, sessions, dashboard, workout_plans
 from database import engine, Base
+from pathlib import Path
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -20,6 +22,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Create uploads directory if it doesn't exist
+upload_dir = Path("uploads")
+upload_dir.mkdir(exist_ok=True)
+
+# Mount static files for uploads
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Include routers
 app.include_router(users.router, prefix="/api/users", tags=["users"])

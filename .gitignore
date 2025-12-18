@@ -13,3 +13,5 @@ ENV/
 
 # Docker
 .dockerignore
+# Uploads
+uploads/

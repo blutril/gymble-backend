@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from starlette.requests import Request
 from sqlalchemy.orm import Session
 from typing import List
@@ -7,6 +7,9 @@ import schemas
 from database import get_db
 from passlib.context import CryptContext
 from utils.auth import create_access_token, verify_token
+import os
+import base64
+from pathlib import Path
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -226,5 +229,60 @@ def get_user_stats(user_id: int, db: Session = Depends(get_db)):
         "completed_sessions": completed_sessions,
         "total_workout_plans": total_plans,
     }
+
+
+@router.post("/me/upload-profile-image", response_model=schemas.User)
+async def upload_profile_image(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Upload profile image for current user"""
+    # Verify token and get user_id
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    try:
+        token = auth_header.split(" ")[1]
+        token_data = verify_token(token)
+        user_id = token_data.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token data")
+    except Exception as e:
+        print(f"Token verification error: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+    
+    # Get user
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Validate file
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+    
+    # Check file size (max 5MB)
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+    
+    # Check file type
+    if file.content_type not in ['image/jpeg', 'image/png', 'image/gif', 'image/webp']:
+        raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG, PNG, GIF, and WebP allowed")
+    
+    # Create uploads directory if it doesn't exist
+    upload_dir = Path("uploads")
+    upload_dir.mkdir(exist_ok=True)
+    
+    # Save file with user_id as filename
+    file_extension = Path(file.filename).suffix
+    file_path = upload_dir / f"profile_{user_id}{file_extension}"
+    
+    with open(file_path, "wb") as f:
+        f.write(contents)
+    
+    # Store file path in database
+    db_user.profile_picture = str(file_path)
+    db.commit()
+    db.refresh(db_user)
+    
+    return db_user
 
 
