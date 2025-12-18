@@ -32,6 +32,7 @@ class ExerciseCreate(ExerciseBase):
 
 class Exercise(ExerciseBase):
     id: int
+    user_id: Optional[int] = None
     created_at: datetime
     
     class Config:
@@ -61,6 +62,7 @@ class WorkoutBase(BaseModel):
     description: Optional[str] = None
     plan_id: Optional[int] = None
     icon: str = "fitness"  # Icon name for the workout
+    category: str = "general"  # Category: strength, cardio, flexibility, sports, general
 
 class WorkoutCreate(WorkoutBase):
     exercises: List[WorkoutExerciseCreate] = []
@@ -71,6 +73,7 @@ class Workout(WorkoutBase):
     created_at: datetime
     updated_at: datetime
     exercises: List[WorkoutExercise] = []
+    category: Optional[str] = "general"
     
     class Config:
         from_attributes = True

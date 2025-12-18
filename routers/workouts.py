@@ -28,7 +28,8 @@ def create_workout(workout: schemas.WorkoutCreate, user_id: int, db: Session = D
         plan_id=workout.plan_id,
         name=workout.name,
         description=workout.description,
-        icon=workout.icon
+        icon=workout.icon,
+        category=workout.category
     )
     db.add(db_workout)
     db.commit()
@@ -86,6 +87,7 @@ def update_workout(
     db_workout.description = workout.description
     db_workout.plan_id = workout.plan_id
     db_workout.icon = workout.icon
+    db_workout.category = workout.category
     
     # Delete existing exercises
     db.query(models.WorkoutExercise).filter(

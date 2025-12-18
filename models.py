@@ -41,6 +41,7 @@ class Workout(Base):
     name = Column(String)
     description = Column(Text)
     icon = Column(String, default="fitness")  # Icon name (e.g., "fitness", "barbell", "heart", etc.)
+    category = Column(String, default="general")  # Category: strength, cardio, flexibility, sports, general
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
