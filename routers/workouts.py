@@ -13,22 +13,36 @@ def create_workout(workout: schemas.WorkoutCreate, user_id: int, db: Session = D
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if workout.plan_id is not None:
+        plan = db.query(models.WorkoutPlan).filter(
+            models.WorkoutPlan.id == workout.plan_id,
+            models.WorkoutPlan.user_id == user_id
+        ).first()
+        if not plan:
+            raise HTTPException(status_code=404, detail="Workout plan not found")
     
     # Create workout
     db_workout = models.Workout(
         user_id=user_id,
+        plan_id=workout.plan_id,
         name=workout.name,
-        description=workout.description
+        description=workout.description,
+        icon=workout.icon
     )
     db.add(db_workout)
     db.commit()
     db.refresh(db_workout)
     
     # Add exercises to workout
-    for exercise_data in workout.exercises:
+    for index, exercise_data in enumerate(workout.exercises):
+        exercise_dict = exercise_data.dict()
+        # If order is not provided, use the index
+        if exercise_dict.get('order') is None:
+            exercise_dict['order'] = index
         db_workout_exercise = models.WorkoutExercise(
             workout_id=db_workout.id,
-            **exercise_data.dict()
+            **exercise_dict
         )
         db.add(db_workout_exercise)
     
@@ -59,9 +73,19 @@ def update_workout(
     db_workout = db.query(models.Workout).filter(models.Workout.id == workout_id).first()
     if db_workout is None:
         raise HTTPException(status_code=404, detail="Workout not found")
+
+    if workout.plan_id is not None:
+        plan = db.query(models.WorkoutPlan).filter(
+            models.WorkoutPlan.id == workout.plan_id,
+            models.WorkoutPlan.user_id == db_workout.user_id
+        ).first()
+        if not plan:
+            raise HTTPException(status_code=404, detail="Workout plan not found")
     
     db_workout.name = workout.name
     db_workout.description = workout.description
+    db_workout.plan_id = workout.plan_id
+    db_workout.icon = workout.icon
     
     # Delete existing exercises
     db.query(models.WorkoutExercise).filter(
@@ -69,10 +93,14 @@ def update_workout(
     ).delete()
     
     # Add new exercises
-    for exercise_data in workout.exercises:
+    for index, exercise_data in enumerate(workout.exercises):
+        exercise_dict = exercise_data.dict()
+        # If order is not provided, use the index
+        if exercise_dict.get('order') is None:
+            exercise_dict['order'] = index
         db_workout_exercise = models.WorkoutExercise(
             workout_id=workout_id,
-            **exercise_data.dict()
+            **exercise_dict
         )
         db.add(db_workout_exercise)
     

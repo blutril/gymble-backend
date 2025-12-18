@@ -43,7 +43,7 @@ class WorkoutExerciseBase(BaseModel):
     sets: int
     reps: int
     rest_seconds: int
-    order: int
+    order: Optional[int] = None
 
 class WorkoutExerciseCreate(WorkoutExerciseBase):
     pass
@@ -59,6 +59,8 @@ class WorkoutExercise(WorkoutExerciseBase):
 class WorkoutBase(BaseModel):
     name: str
     description: Optional[str] = None
+    plan_id: Optional[int] = None
+    icon: str = "fitness"  # Icon name for the workout
 
 class WorkoutCreate(WorkoutBase):
     exercises: List[WorkoutExerciseCreate] = []
@@ -73,16 +75,67 @@ class Workout(WorkoutBase):
     class Config:
         from_attributes = True
 
+
+class WorkoutPlanBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class WorkoutPlanCreate(WorkoutPlanBase):
+    workout_ids: List[int] = []
+
+
+class WorkoutPlanUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    workout_ids: Optional[List[int]] = None
+
+
+class WorkoutPlan(WorkoutPlanBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    workouts: List[Workout] = []
+
+    class Config:
+        from_attributes = True
+
 # Session Exercise Schemas
+class SetData(BaseModel):
+    """Per-set metrics data"""
+    weight: float
+    reps: int
+    rpe: Optional[float] = None  # Rate of Perceived Exertion (1-10)
+    rir: Optional[float] = None  # Reps in Reserve
+    tut: Optional[float] = None  # Time Under Tension in seconds
+    rest_after: Optional[int] = None  # Rest after set in seconds
+
 class SessionExerciseBase(BaseModel):
     exercise_id: int
     sets_completed: int
     reps_completed: int
     weight: float
     notes: Optional[str] = None
+    sets_data: Optional[List[SetData]] = None
+    time_under_tension: Optional[float] = None
+    total_volume: Optional[float] = None
+    best_set_weight: Optional[float] = None
+    best_set_reps: Optional[int] = None
+    avg_rpe: Optional[float] = None
 
-class SessionExerciseCreate(SessionExerciseBase):
-    pass
+class SessionExerciseCreate(BaseModel):
+    exercise_id: int
+    sets_completed: int
+    reps_completed: int
+    weight: float
+    notes: Optional[str] = None
+    sets_data: Optional[str] = None  # JSON string
+    time_under_tension: Optional[float] = None
+    total_volume: Optional[float] = None
+    best_set_weight: Optional[float] = None
+    best_set_reps: Optional[int] = None
+    avg_rpe: Optional[float] = None
 
 class SessionExercise(SessionExerciseBase):
     id: int
@@ -95,6 +148,8 @@ class SessionExercise(SessionExerciseBase):
 class WorkoutSessionBase(BaseModel):
     workout_id: int
     notes: Optional[str] = None
+    session_rpe: Optional[float] = None
+    user_readiness: Optional[int] = None
 
 class WorkoutSessionCreate(WorkoutSessionBase):
     pass
@@ -102,6 +157,10 @@ class WorkoutSessionCreate(WorkoutSessionBase):
 class WorkoutSessionUpdate(BaseModel):
     completed_at: Optional[datetime] = None
     duration_minutes: Optional[int] = None
+    session_rpe: Optional[float] = None
+    user_readiness: Optional[int] = None
+    training_load: Optional[float] = None
+    total_volume: Optional[float] = None
     notes: Optional[str] = None
     exercises: Optional[List[SessionExerciseCreate]] = None
 
@@ -111,6 +170,10 @@ class WorkoutSession(WorkoutSessionBase):
     started_at: datetime
     completed_at: Optional[datetime] = None
     duration_minutes: Optional[int] = None
+    session_rpe: Optional[float] = None
+    user_readiness: Optional[int] = None
+    training_load: Optional[float] = None
+    total_volume: Optional[float] = None
     workout: Workout
     exercises: List[SessionExercise] = []
     

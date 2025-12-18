@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import workouts, exercises, users, sessions, dashboard
+from routers import workouts, exercises, users, sessions, dashboard, workout_plans
 from database import engine, Base
 
 # Create database tables
@@ -24,6 +24,7 @@ app.add_middleware(
 # Include routers
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(workouts.router, prefix="/api/workouts", tags=["workouts"])
+app.include_router(workout_plans.router, prefix="/api/workout-plans", tags=["workout plans"])
 app.include_router(exercises.router, prefix="/api/exercises", tags=["exercises"])
 app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(dashboard.router, tags=["dashboard"])
