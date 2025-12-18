@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 import models
 from database import get_db
 from utils.stats import WorkoutAnalytics
+from utils.auth import verify_token_and_get_user
 
 router = APIRouter()
 
@@ -333,8 +334,33 @@ def _format_datetime(value: Optional[datetime]) -> str:
     return value.strftime("%b %d, %Y %H:%M")
 
 
+@router.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    """Serve the login page"""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    # Check if user is authenticated and is admin
+    current_user_data = verify_token_and_get_user(request)
+    
+    if not current_user_data:
+        # Not authenticated, redirect to login page
+        return RedirectResponse(url="/login", status_code=303)
+    
+    # Get user from database
+    user = db.query(models.User).filter(models.User.id == current_user_data["user_id"]).first()
+    if not user:
+        # User not found
+        return RedirectResponse(url="/login", status_code=303)
+    
+    # Check if user is admin - compare role from token (already verified)
+    token_role = current_user_data.get("role", "")
+    if token_role != "admin":
+        # User is not an admin
+        return RedirectResponse(url="/login?error=unauthorized", status_code=303)
+    
     total_users = db.query(models.User).count()
     total_workouts = db.query(models.Workout).count()
     total_exercises = db.query(models.Exercise).count()
@@ -384,19 +410,20 @@ def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     )
 
     all_users = []
-    for user in all_users_query:
-        workout_count = db.query(models.Workout).filter(models.Workout.user_id == user.id).count()
-        session_count = db.query(models.WorkoutSession).filter(models.WorkoutSession.user_id == user.id).count()
+    for user_item in all_users_query:
+        workout_count = db.query(models.Workout).filter(models.Workout.user_id == user_item.id).count()
+        session_count = db.query(models.WorkoutSession).filter(models.WorkoutSession.user_id == user_item.id).count()
         all_users.append({
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "full_name": user.full_name,
-            "age": user.age,
-            "height": user.height,
-            "weight": user.weight,
-            "bio": user.bio,
-            "created_at": _format_datetime(user.created_at),
+            "id": user_item.id,
+            "username": user_item.username,
+            "email": user_item.email,
+            "full_name": user_item.full_name,
+            "age": user_item.age,
+            "height": user_item.height,
+            "weight": user_item.weight,
+            "bio": user_item.bio,
+            "role": user_item.role.value,
+            "created_at": _format_datetime(user_item.created_at),
             "workout_count": workout_count,
             "session_count": session_count,
         })
@@ -450,6 +477,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 
     context: Dict[str, object] = {
         "request": request,
+        "current_user": current_user_data,
         "totals": {
             "users": total_users,
             "workouts": total_workouts,

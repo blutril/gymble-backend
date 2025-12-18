@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gymble Admin Login</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #f5f6f8;
+      color: #101828;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .login-container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      width: 100%;
+      max-width: 400px;
+      padding: 48px 32px;
+    }
+    .logo-section {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .logo-section h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #101828;
+      margin-bottom: 8px;
+    }
+    .logo-section p {
+      font-size: 14px;
+      color: #475467;
+    }
+    .form-group {
+      margin-bottom: 24px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #101828;
+      font-size: 14px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      background-color: #f9fafb;
+    }
+    .form-group input::placeholder {
+      color: #a1a8b8;
+    }
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      display: none;
+    }
+    .alert.show {
+      display: block;
+    }
+    .alert-error {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
+    .alert-info {
+      background-color: #dbeafe;
+      color: #0c4a6e;
+      border: 1px solid #7dd3fc;
+    }
+    .btn-login {
+      width: 100%;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+    }
+    .btn-login:hover {
+      opacity: 0.95;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn-login:active {
+      transform: translateY(0);
+    }
+    .btn-login:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .help-text {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 13px;
+      color: #475467;
+      text-align: center;
+    }
+    .credentials {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #344054;
+      word-break: break-all;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      color: #667eea;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .error-message {
+      color: #dc2626;
+      font-size: 14px;
+      margin-top: 4px;
+      display: none;
+    }
+    .error-message.show {
+      display: block;
+    }
+    @media (max-width: 480px) {
+      .login-container {
+        padding: 32px 24px;
+      }
+      .logo-section h1 {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="logo-section">
+      <h1>Gymble</h1>
+      <p>Admin Dashboard</p>
+    </div>
+
+    <div id="alertContainer"></div>
+
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          placeholder="admin@gymble.com"
+          required 
+          autocomplete="email"
+        />
+        <div class="error-message" id="emailError"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password" 
+          placeholder="Enter your password"
+          required 
+          autocomplete="current-password"
+        />
+        <div class="error-message" id="passwordError"></div>
+      </div>
+
+      <div class="loading" id="loading">
+        <span>Logging in...</span>
+      </div>
+
+      <button type="submit" class="btn-login" id="loginBtn">Login</button>
+    </form>
+
+    <div class="help-text">
+      <strong>Default Admin Credentials:</strong>
+      <div class="credentials">
+        Email: admin@gymble.com<br>
+        Password: admin123
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Check for error in URL
+    window.addEventListener('load', function() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('error') === 'unauthorized') {
+        showAlert('You do not have permission to access the admin dashboard. Admin access required.', 'error');
+        // Clear token on unauthorized
+        localStorage.removeItem('access_token');
+      }
+    });
+
+    async function handleLogin(event) {
+      event.preventDefault();
+      
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const loginBtn = document.getElementById('loginBtn');
+      const loading = document.getElementById('loading');
+
+      // Validate inputs
+      if (!email || !password) {
+        showAlert('Please enter both email and password', 'error');
+        return;
+      }
+
+      // Disable button and show loading
+      loginBtn.disabled = true;
+      loading.style.display = 'block';
+
+      try {
+        const response = await fetch('/api/users/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email,
+            password: password
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          showAlert(error.detail || 'Login failed. Please check your credentials.', 'error');
+          loginBtn.disabled = false;
+          loading.style.display = 'none';
+          return;
+        }
+
+        const data = await response.json();
+        
+        console.log('=== LOGIN RESPONSE DEBUG ===');
+        console.log('Full response:', data);
+        console.log('User object:', data.user);
+        console.log('User role:', data.user.role);
+        console.log('Role type:', typeof data.user.role);
+        console.log('Role === "admin":', data.user.role === 'admin');
+        console.log('========================');
+        
+        // Check if user is admin
+        if (data.user.role !== 'admin') {
+          console.warn('User role is not admin:', data.user.role);
+          showAlert(`You do not have admin access. Your role is: ${data.user.role}`, 'error');
+          loginBtn.disabled = false;
+          loading.style.display = 'none';
+          return;
+        }
+
+        console.log('User is admin, storing token and redirecting...');
+        
+        // Store token
+        localStorage.setItem('access_token', data.access_token);
+        
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
+      } catch (error) {
+        console.error('Login error:', error);
+        showAlert('An error occurred. Please try again.', 'error');
+        loginBtn.disabled = false;
+        loading.style.display = 'none';
+      }
+    }
+
+    function showAlert(message, type = 'error') {
+      const alertContainer = document.getElementById('alertContainer');
+      const alertDiv = document.createElement('div');
+      alertDiv.className = `alert show alert-${type}`;
+      alertDiv.textContent = message;
+      alertContainer.innerHTML = '';
+      alertContainer.appendChild(alertDiv);
+      
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        alertDiv.classList.remove('show');
+      }, 5000);
+    }
+
+    // Allow Enter key to submit form
+    document.getElementById('password').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+      }
+    });
+  </script>
+</body>
+</html>

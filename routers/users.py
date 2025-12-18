@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Response
 from starlette.requests import Request
 from sqlalchemy.orm import Session
 from typing import List
@@ -44,9 +44,10 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     
-    # Generate token
+    # Generate token - safely get role value
+    role_value = db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role)
     access_token = create_access_token(
-        data={"user_id": db_user.id, "email": db_user.email}
+        data={"user_id": db_user.id, "email": db_user.email, "role": role_value}
     )
     
     return {
@@ -56,7 +57,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     }
 
 @router.post("/login", response_model=schemas.Token)
-def login_user(user_login: schemas.UserLogin, db: Session = Depends(get_db)):
+def login_user(user_login: schemas.UserLogin, response: Response, db: Session = Depends(get_db)):
     """Login user with email and password"""
     # Find user by email
     db_user = db.query(models.User).filter(models.User.email == user_login.email).first()
@@ -66,9 +67,20 @@ def login_user(user_login: schemas.UserLogin, db: Session = Depends(get_db)):
             detail="Invalid email or password"
         )
     
-    # Generate token
+    # Generate token - safely get role value
+    role_value = db_user.role.value if hasattr(db_user.role, 'value') else str(db_user.role)
     access_token = create_access_token(
-        data={"user_id": db_user.id, "email": db_user.email}
+        data={"user_id": db_user.id, "email": db_user.email, "role": role_value}
+    )
+    
+    # Set httponly cookie so browser sends it automatically
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="Lax",
+        max_age=86400  # 24 hours
     )
     
     return {
@@ -149,6 +161,20 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+@router.get("/test-role/{email}")
+def test_role(email: str, db: Session = Depends(get_db)):
+    """Test endpoint to check user role"""
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        return {"error": "User not found"}
+    return {
+        "username": user.username,
+        "email": user.email,
+        "role": user.role,
+        "role_type": type(user.role).__name__,
+        "role_value": user.role.value if hasattr(user.role, 'value') else str(user.role)
+    }
 
 @router.get("/", response_model=List[schemas.User])
 def get_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):

@@ -1,7 +1,12 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, Enum
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
+import enum
+
+class UserRole(str, enum.Enum):
+    admin = "admin"
+    member = "member"
 
 class User(Base):
     __tablename__ = "users"
@@ -16,6 +21,7 @@ class User(Base):
     weight = Column(Float, nullable=True)  # in kg
     bio = Column(Text, nullable=True)
     profile_picture = Column(String, nullable=True)  # URL or base64
+    role = Column(Enum(UserRole), default=UserRole.member)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     workouts = relationship("Workout", back_populates="user")

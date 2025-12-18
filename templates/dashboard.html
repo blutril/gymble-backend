@@ -18,11 +18,42 @@
     }
     header {
       padding: 32px 0 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
     }
-    h1 {
+    .header-left h1 {
       margin: 0;
       font-size: 32px;
       font-weight: 700;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .user-info {
+      text-align: right;
+      font-size: 14px;
+    }
+    .user-info .username {
+      font-weight: 600;
+      color: #101828;
+    }
+    .user-info .role {
+      font-size: 12px;
+      color: #475467;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      background-color: #e0e7ff;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .user-info .role.admin {
+      background-color: #fef3c7;
+      color: #92400e;
     }
     .subtitle {
       margin-top: 8px;
@@ -122,6 +153,23 @@
       background: #fef3c7;
       color: #b45309;
     }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge.admin {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .badge.member {
+      background: #dbeafe;
+      color: #0c4a6e;
+    }
     ul.distribution {
       list-style: none;
       margin: 0;
@@ -160,8 +208,16 @@
       body {
         padding: 0 16px 32px;
       }
-      h1 {
+      header {
+        flex-direction: column;
+        gap: 12px;
+      }
+      .header-left h1 {
         font-size: 26px;
+      }
+      .header-right {
+        width: 100%;
+        justify-content: space-between;
       }
     }
     /* Modal Styles */
@@ -273,6 +329,13 @@
     .btn-secondary:hover {
       background-color: #d1d5db;
     }
+    .btn-logout {
+      background-color: #ef4444;
+      color: white;
+    }
+    .btn-logout:hover {
+      background-color: #dc2626;
+    }
     .btn-small {
       padding: 6px 12px;
       font-size: 12px;
@@ -315,8 +378,17 @@
 </head>
 <body>
   <header>
-    <h1>Gymble Admin Dashboard</h1>
-    <p class="subtitle">Snapshot generated {{ generated_at }}</p>
+    <div class="header-left">
+      <h1>Gymble Admin Dashboard</h1>
+      <p class="subtitle">Snapshot generated {{ generated_at }}</p>
+    </div>
+    <div class="header-right">
+      <div class="user-info">
+        <div class="username">{{ current_user.email }}</div>
+        <div class="role admin">{{ current_user.role }}</div>
+      </div>
+      <button class="btn btn-logout" onclick="logout()">Logout</button>
+    </div>
   </header>
 
   <section>
@@ -413,6 +485,7 @@
           <th>Username</th>
           <th>Email</th>
           <th>Full Name</th>
+          <th>Role</th>
           <th>Joined</th>
           <th>Workouts</th>
           <th>Sessions</th>
@@ -425,11 +498,12 @@
           <td><strong>{{ user.username }}</strong></td>
           <td>{{ user.email }}</td>
           <td>{{ user.full_name or "—" }}</td>
+          <td><span class="badge {{ user.role }}">{{ user.role }}</span></td>
           <td>{{ user.created_at }}</td>
           <td>{{ user.workout_count }}</td>
           <td>{{ user.session_count }}</td>
           <td>
-            <button class="btn btn-small btn-edit" onclick="openEditModal({{ user.id }}, '{{ user.username }}', '{{ user.email }}', '{{ user.full_name or '' }}', {{ user.age or 'null' }}, {{ user.height or 'null' }}, {{ user.weight or 'null' }}, '{{ user.bio or '' }}')">Edit</button>
+            <button class="btn btn-small btn-edit" onclick="openEditModal({{ user.id }}, '{{ user.username }}', '{{ user.email }}', '{{ user.full_name or '' }}', {{ user.age or 'null' }}, {{ user.height or 'null' }}, {{ user.weight or 'null' }}, '{{ user.bio or '' }}', '{{ user.role }}')">Edit</button>
             <button class="btn btn-small btn-danger" onclick="deleteUser({{ user.id }}, '{{ user.username }}')">Delete</button>
           </td>
         </tr>
@@ -458,6 +532,13 @@
         <div class="form-group">
           <label for="editFullName">Full Name:</label>
           <input type="text" id="editFullName" name="full_name">
+        </div>
+        <div class="form-group">
+          <label for="editRole">Role:</label>
+          <select id="editRole" name="role" required style="width: 100%; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 8px; font-family: inherit; font-size: 14px;">
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+          </select>
         </div>
         <div class="form-group">
           <label for="editAge">Age:</label>
@@ -663,11 +744,12 @@
   // Modal and User Edit Functions
   let currentEditUserId = null;
 
-  function openEditModal(userId, username, email, fullName, age, height, weight, bio) {
+  function openEditModal(userId, username, email, fullName, age, height, weight, bio, role = 'member') {
     currentEditUserId = userId;
     document.getElementById('editUsername').value = username;
     document.getElementById('editEmail').value = email;
     document.getElementById('editFullName').value = fullName || '';
+    document.getElementById('editRole').value = role || 'member';
     document.getElementById('editAge').value = age || '';
     document.getElementById('editHeight').value = height || '';
     document.getElementById('editWeight').value = weight || '';
@@ -690,6 +772,7 @@
 
     const email = document.getElementById('editEmail').value.trim();
     const fullName = document.getElementById('editFullName').value.trim();
+    const role = document.getElementById('editRole').value;
     const age = document.getElementById('editAge').value;
     const height = document.getElementById('editHeight').value;
     const weight = document.getElementById('editWeight').value;
@@ -714,6 +797,7 @@
         body: JSON.stringify({
           email: email,
           full_name: fullName || null,
+          role: role || 'member',
           age: age ? parseInt(age) : null,
           height: height ? parseFloat(height) : null,
           weight: weight ? parseFloat(weight) : null,
@@ -770,6 +854,13 @@
     } else {
       alert('✗ ' + message);
     }
+  }
+
+  function logout() {
+    // Clear token from localStorage
+    localStorage.removeItem('access_token');
+    // Redirect to login page
+    window.location.href = '/login';
   }
 
   // Close modal when clicking outside of it

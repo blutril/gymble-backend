@@ -23,9 +23,14 @@ class User(UserBase):
     weight: Optional[float] = None  # in kg
     bio: Optional[str] = None
     profile_picture: Optional[str] = None  # URL or base64
+    role: str = "member"  # admin or member
     
     class Config:
         from_attributes = True
+        use_enum_values = True
+        json_encoders = {
+            'role': lambda v: v.value if hasattr(v, 'value') else str(v)
+        }
 
 # Token Schemas
 class Token(BaseModel):
@@ -36,6 +41,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: int
     email: Optional[str] = None
+    role: Optional[str] = None
 
 # Exercise Schemas
 class ExerciseBase(BaseModel):
