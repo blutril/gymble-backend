@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gymble Admin Dashboard</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #f5f6f8;
+      color: #101828;
+    }
+    body {
+      margin: 0;
+      padding: 0 24px 48px;
+      background-color: #f5f6f8;
+    }
+    header {
+      padding: 32px 0 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      font-weight: 700;
+    }
+    .subtitle {
+      margin-top: 8px;
+      color: #475467;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    }
+    .chart-card {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08);
+    }
+    .chart-card h4 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #344054;
+    }
+    canvas {
+      width: 100% !important;
+      height: 260px !important;
+    }
+    .card h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 12px;
+      color: #475467;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .card .metric {
+      font-size: 32px;
+      font-weight: 700;
+      margin: 0;
+      color: #101828;
+    }
+    section {
+      margin-top: 32px;
+    }
+    section h3 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    }
+    th, td {
+      padding: 14px 18px;
+      text-align: left;
+    }
+    th {
+      background: #f9fafb;
+      font-size: 13px;
+      font-weight: 600;
+      color: #475467;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    tr:not(:last-child) td {
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status.completed {
+      background: #ecfdf3;
+      color: #027a48;
+    }
+    .status.in-progress {
+      background: #fef3c7;
+      color: #b45309;
+    }
+    ul.distribution {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    ul.distribution li {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: inset 0 0 0 1px #edf1f7;
+    }
+    .label {
+      display: block;
+      font-size: 13px;
+      color: #475467;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .distribution-value {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .empty {
+      padding: 24px;
+      background: #fff;
+      border-radius: 16px;
+      text-align: center;
+      color: #475467;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    }
+    @media (max-width: 640px) {
+      body {
+        padding: 0 16px 32px;
+      }
+      h1 {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Gymble Admin Dashboard</h1>
+    <p class="subtitle">Snapshot generated {{ generated_at }}</p>
+  </header>
+
+  <section>
+    <div class="grid">
+      <div class="card">
+        <h2>Total Users</h2>
+        <p class="metric">{{ totals.users }}</p>
+      </div>
+      <div class="card">
+        <h2>Total Workouts</h2>
+        <p class="metric">{{ totals.workouts }}</p>
+      </div>
+      <div class="card">
+        <h2>Total Exercises</h2>
+        <p class="metric">{{ totals.exercises }}</p>
+      </div>
+      <div class="card">
+        <h2>Total Sessions</h2>
+        <p class="metric">{{ totals.sessions }}</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>Session Health</h3>
+    <div class="grid">
+      <div class="card">
+        <h2>Completed Sessions</h2>
+        <p class="metric">{{ session_stats.completed }}</p>
+      </div>
+      <div class="card">
+        <h2>Active Sessions</h2>
+        <p class="metric">{{ session_stats.active }}</p>
+      </div>
+      <div class="card">
+        <h2>Average Duration</h2>
+        <p class="metric">{{ session_stats.average_duration }}</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>Trends &amp; Insights</h3>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h4>Sessions In The Last Week</h4>
+        <canvas id="sessionsChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h4>Top Workout Creators</h4>
+        <canvas id="workoutsChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h4>Muscle Group Coverage</h4>
+        <canvas id="muscleChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h3>Recent Workouts</h3>
+    {% if recent_workouts %}
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Owner</th>
+          <th>Exercises</th>
+          <th>Last Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for workout in recent_workouts %}
+        <tr>
+          <td>{{ workout.name }}</td>
+          <td>{{ workout.owner }}</td>
+          <td>{{ workout.exercise_count }}</td>
+          <td>{{ workout.updated_at }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty">No workouts yet</div>
+    {% endif %}
+  </section>
+
+  <section>
+    <h3>Latest Sessions</h3>
+    {% if recent_sessions %}
+    <table>
+      <thead>
+        <tr>
+          <th>Workout</th>
+          <th>User</th>
+          <th>Started</th>
+          <th>Duration</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for session in recent_sessions %}
+        <tr>
+          <td>{{ session.workout }}</td>
+          <td>{{ session.user }}</td>
+          <td>{{ session.started_at }}</td>
+          <td>{{ session.duration }}</td>
+          <td>
+            <span class="status {{ 'completed' if session.status == 'Completed' else 'in-progress' }}">{{ session.status }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty">No sessions recorded yet</div>
+    {% endif %}
+  </section>
+
+  <section>
+    <h3>Exercise Insights</h3>
+    <div class="grid">
+      <div class="card">
+        <h2>Most Used Exercises</h2>
+        {% if top_exercises %}
+          <table>
+            <thead>
+              <tr>
+                <th>Exercise</th>
+                <th>Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in top_exercises %}
+              <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ item.usage_count }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p>No exercise usage data yet.</p>
+        {% endif %}
+      </div>
+      <div class="card">
+        <h2>Muscle Group Coverage</h2>
+        {% if muscle_distribution %}
+          <ul class="distribution">
+            {% for entry in muscle_distribution %}
+            <li>
+              <span class="label">{{ entry.group | title }}</span>
+              <span class="distribution-value">{{ entry.total }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p>No muscle group data available.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+</body>
+<script id="chart-data" type="application/json">{{ charts | tojson | safe }}</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<script>
+  const chartData = JSON.parse(document.getElementById('chart-data').textContent || '{}');
+
+  const primaryColor = '#4f46e5';
+  const accentColor = '#f97316';
+  const neutralColor = '#38bdf8';
+
+  if (chartData.sessions_by_day.labels.length) {
+    new Chart(document.getElementById('sessionsChart'), {
+      type: 'line',
+      data: {
+        labels: chartData.sessions_by_day.labels,
+        datasets: [{
+          label: 'Sessions',
+          data: chartData.sessions_by_day.counts,
+          borderColor: primaryColor,
+          backgroundColor: 'rgba(79, 70, 229, 0.12)',
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointBackgroundColor: '#fff',
+          pointBorderWidth: 2,
+          pointBorderColor: primaryColor,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1 }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  }
+
+  if (chartData.workouts_per_user.labels.length) {
+    new Chart(document.getElementById('workoutsChart'), {
+      type: 'bar',
+      data: {
+        labels: chartData.workouts_per_user.labels,
+        datasets: [{
+          label: 'Workouts',
+          data: chartData.workouts_per_user.counts,
+          backgroundColor: accentColor,
+          borderRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1 }
+          }
+        }
+      }
+    });
+  }
+
+  if (chartData.muscle_distribution.labels.length) {
+    new Chart(document.getElementById('muscleChart'), {
+      type: 'doughnut',
+      data: {
+        labels: chartData.muscle_distribution.labels,
+        datasets: [{
+          data: chartData.muscle_distribution.counts,
+          backgroundColor: [
+            '#6366f1', '#f59e0b', '#10b981', '#ec4899', '#0ea5e9', '#8b5cf6', '#f97316'
+          ],
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              boxWidth: 12,
+              boxHeight: 12,
+            }
+          }
+        }
+      }
+    });
+  }
+</script>
+</html>
