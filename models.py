@@ -11,6 +11,11 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     full_name = Column(String)
     hashed_password = Column(String)
+    age = Column(Integer, nullable=True)
+    height = Column(Float, nullable=True)  # in cm
+    weight = Column(Float, nullable=True)  # in kg
+    bio = Column(Text, nullable=True)
+    profile_picture = Column(String, nullable=True)  # URL or base64
     created_at = Column(DateTime, default=datetime.utcnow)
     
     workouts = relationship("Workout", back_populates="user")

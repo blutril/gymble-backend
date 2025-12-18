@@ -376,6 +376,31 @@ def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
         .all()
     )
 
+    # Get all users with their stats
+    all_users_query: List[models.User] = (
+        db.query(models.User)
+        .order_by(models.User.created_at.desc())
+        .all()
+    )
+
+    all_users = []
+    for user in all_users_query:
+        workout_count = db.query(models.Workout).filter(models.Workout.user_id == user.id).count()
+        session_count = db.query(models.WorkoutSession).filter(models.WorkoutSession.user_id == user.id).count()
+        all_users.append({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "age": user.age,
+            "height": user.height,
+            "weight": user.weight,
+            "bio": user.bio,
+            "created_at": _format_datetime(user.created_at),
+            "workout_count": workout_count,
+            "session_count": session_count,
+        })
+
     days_back = 6
     window_start = datetime.utcnow() - timedelta(days=days_back)
     sessions_by_day = (
@@ -457,6 +482,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
             }
             for session in recent_sessions
         ],
+        "all_users": all_users,
         "top_exercises": [
             {"name": row.name, "usage_count": row.usage_count}
             for row in top_exercises
