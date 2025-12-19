@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from typing import List, Optional
 import models
 import schemas
@@ -40,7 +40,10 @@ def create_session(
 
 @router.get("/", response_model=List[schemas.WorkoutSession])
 def get_sessions(user_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    sessions = db.query(models.WorkoutSession).filter(
+    sessions = db.query(models.WorkoutSession).options(
+        selectinload(models.WorkoutSession.exercises).selectinload(models.SessionExercise.exercise),
+        selectinload(models.WorkoutSession.workout)
+    ).filter(
         models.WorkoutSession.user_id == user_id
     ).order_by(models.WorkoutSession.started_at.desc()).offset(skip).limit(limit).all()
     return sessions
