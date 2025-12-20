@@ -17,6 +17,84 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 
+# User Management Endpoints
+
+@router.get("/users-list")
+def get_users_list(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of all users with their statistics
+    Used for user management dashboard
+    """
+    users = db.query(models.User).offset(skip).limit(limit).all()
+    
+    users_list = []
+    for user in users:
+        workout_count = db.query(models.Workout).filter(models.Workout.user_id == user.id).count()
+        session_count = db.query(models.WorkoutSession).filter(models.WorkoutSession.user_id == user.id).count()
+        
+        users_list.append({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "age": user.age,
+            "height": user.height,
+            "weight": user.weight,
+            "bio": user.bio,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+            "profile_picture": user.profile_picture,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "workout_count": workout_count,
+            "session_count": session_count,
+        })
+    
+    return {"data": users_list, "total": len(users_list)}
+
+
+@router.get("/user/{user_id}/stats")
+def get_user_stats(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get statistics for a specific user
+    Returns workout count, session count, and other metrics
+    """
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    workout_count = db.query(models.Workout).filter(models.Workout.user_id == user_id).count()
+    session_count = db.query(models.WorkoutSession).filter(models.WorkoutSession.user_id == user_id).count()
+    
+    # Get total time trained
+    total_minutes = db.query(func.sum(models.WorkoutSession.duration_minutes)).filter(
+        models.WorkoutSession.user_id == user_id,
+        models.WorkoutSession.duration_minutes.isnot(None)
+    ).scalar() or 0
+    
+    # Get completion rate
+    completed_sessions = db.query(models.WorkoutSession).filter(
+        models.WorkoutSession.user_id == user_id,
+        models.WorkoutSession.completed_at.isnot(None)
+    ).count()
+    
+    completion_rate = round((completed_sessions / session_count * 100), 1) if session_count > 0 else 0
+    
+    return {
+        "user_id": user_id,
+        "workout_count": workout_count,
+        "session_count": session_count,
+        "total_minutes": total_minutes,
+        "completion_rate": completion_rate,
+        "completed_sessions": completed_sessions,
+    }
+
+
 # Advanced Analytics Endpoints
 
 @router.get("/user/{user_id}/comprehensive-stats")
