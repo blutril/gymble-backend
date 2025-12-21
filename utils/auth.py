@@ -49,11 +49,8 @@ def verify_token(token: str) -> schemas.TokenData:
         raise credentials_exception
     return token_data
 
-def get_current_user(
-    request: Request,
-    db: Session = Depends(lambda: None)
-) -> int:
-    """Get current user from token"""
+def get_current_user(request: Request) -> int:
+    """Get current user ID from JWT token"""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(

@@ -4,6 +4,7 @@ from typing import List
 import models
 import schemas
 from database import get_db
+from utils.auth import get_current_user
 
 router = APIRouter()
 
@@ -32,7 +33,7 @@ def _fetch_workouts_for_plan(db: Session, user_id: int, workout_ids: List[int]) 
 @router.post("/", response_model=schemas.WorkoutPlan, status_code=status.HTTP_201_CREATED)
 def create_workout_plan(
     plan: schemas.WorkoutPlanCreate,
-    user_id: int,
+    user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     _validate_user(db, user_id)
@@ -57,7 +58,7 @@ def create_workout_plan(
 
 
 @router.get("/", response_model=List[schemas.WorkoutPlan])
-def get_workout_plans(user_id: int, db: Session = Depends(get_db)):
+def get_workout_plans(user_id: int = Depends(get_current_user), db: Session = Depends(get_db)):
     _validate_user(db, user_id)
 
     plans = db.query(models.WorkoutPlan).options(

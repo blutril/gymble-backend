@@ -99,6 +99,7 @@ class Workout(WorkoutBase):
     updated_at: datetime
     exercises: List[WorkoutExercise] = []
     category: Optional[str] = "general"
+    last_session_date: Optional[datetime] = None
     
     class Config:
         from_attributes = True

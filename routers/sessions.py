@@ -6,6 +6,7 @@ import schemas
 from database import get_db
 from datetime import datetime
 from utils.stats import WorkoutAnalytics
+from utils.auth import get_current_user
 import json
 
 router = APIRouter()
@@ -13,33 +14,45 @@ router = APIRouter()
 @router.post("/", response_model=schemas.WorkoutSession, status_code=status.HTTP_201_CREATED)
 def create_session(
     session: schemas.WorkoutSessionCreate, 
-    user_id: int, 
+    user_id: int = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Check if user and workout exist
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    workout = db.query(models.Workout).filter(models.Workout.id == session.workout_id).first()
-    if not workout:
-        raise HTTPException(status_code=404, detail="Workout not found")
-    
-    # Create session
-    db_session = models.WorkoutSession(
-        user_id=user_id,
-        workout_id=session.workout_id,
-        notes=session.notes,
-        session_rpe=session.session_rpe,
-        user_readiness=session.user_readiness
-    )
-    db.add(db_session)
-    db.commit()
-    db.refresh(db_session)
-    return db_session
+    try:
+        # Check if user and workout exist
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        workout = db.query(models.Workout).filter(models.Workout.id == session.workout_id).first()
+        if not workout:
+            raise HTTPException(status_code=404, detail="Workout not found")
+        
+        # Create session
+        db_session = models.WorkoutSession(
+            user_id=user_id,
+            workout_id=session.workout_id,
+            notes=session.notes,
+            session_rpe=session.session_rpe,
+            user_readiness=session.user_readiness
+        )
+        db.add(db_session)
+        db.commit()
+        db.refresh(db_session)
+        return db_session
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
 
 @router.get("/", response_model=List[schemas.WorkoutSession])
-def get_sessions(user_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def get_sessions(
+    user_id: int = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
     sessions = db.query(models.WorkoutSession).options(
         selectinload(models.WorkoutSession.exercises).selectinload(models.SessionExercise.exercise),
         selectinload(models.WorkoutSession.workout)
@@ -63,58 +76,85 @@ def update_session(
     session_update: schemas.WorkoutSessionUpdate, 
     db: Session = Depends(get_db)
 ):
-    db_session = db.query(models.WorkoutSession).filter(
-        models.WorkoutSession.id == session_id
-    ).first()
-    if db_session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    # Update session fields
-    if session_update.completed_at is not None:
-        db_session.completed_at = session_update.completed_at
-    if session_update.duration_minutes is not None:
-        db_session.duration_minutes = session_update.duration_minutes
-    if session_update.notes is not None:
-        db_session.notes = session_update.notes
-    if session_update.session_rpe is not None:
-        db_session.session_rpe = session_update.session_rpe
-    if session_update.user_readiness is not None:
-        db_session.user_readiness = session_update.user_readiness
-    if session_update.training_load is not None:
-        db_session.training_load = session_update.training_load
-    if session_update.total_volume is not None:
-        db_session.total_volume = session_update.total_volume
-    
-    # Add exercises if provided
-    if session_update.exercises:
-        for exercise_data in session_update.exercises:
-            exercise_dict = exercise_data.dict()
-            db_session_exercise = models.SessionExercise(
-                session_id=session_id,
-                **exercise_dict
-            )
-            db.add(db_session_exercise)
-    
-    db.commit()
-    db.refresh(db_session)
-    return db_session
+    try:
+        db_session = db.query(models.WorkoutSession).filter(
+            models.WorkoutSession.id == session_id
+        ).first()
+        if db_session is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Update session fields
+        if session_update.completed_at is not None:
+            db_session.completed_at = session_update.completed_at
+        if session_update.duration_minutes is not None:
+            db_session.duration_minutes = session_update.duration_minutes
+        if session_update.notes is not None:
+            db_session.notes = session_update.notes
+        if session_update.session_rpe is not None:
+            db_session.session_rpe = session_update.session_rpe
+        if session_update.user_readiness is not None:
+            db_session.user_readiness = session_update.user_readiness
+        if session_update.training_load is not None:
+            db_session.training_load = session_update.training_load
+        if session_update.total_volume is not None:
+            db_session.total_volume = session_update.total_volume
+        
+        # Add exercises if provided
+        if session_update.exercises:
+            for exercise_data in session_update.exercises:
+                try:
+                    exercise_dict = exercise_data.dict()
+                    # Remove any fields that don't exist in the model
+                    valid_fields = {
+                        'exercise_id', 'sets_completed', 'reps_completed', 'weight',
+                        'sets_data', 'time_under_tension', 'total_volume', 
+                        'best_set_weight', 'best_set_reps', 'avg_rpe', 'notes'
+                    }
+                    filtered_dict = {k: v for k, v in exercise_dict.items() if k in valid_fields}
+                    
+                    db_session_exercise = models.SessionExercise(
+                        session_id=session_id,
+                        **filtered_dict
+                    )
+                    db.add(db_session_exercise)
+                except Exception as e:
+                    db.rollback()
+                    print(f"Error adding exercise: {e}")
+                    raise HTTPException(status_code=400, detail=f"Error adding exercise: {str(e)}")
+        
+        db.commit()
+        db.refresh(db_session)
+        return db_session
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update session: {str(e)}")
 
 @router.post("/{session_id}/complete", response_model=schemas.WorkoutSession)
 def complete_session(session_id: int, db: Session = Depends(get_db)):
-    db_session = db.query(models.WorkoutSession).filter(
-        models.WorkoutSession.id == session_id
-    ).first()
-    if db_session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    db_session.completed_at = datetime.utcnow()
-    if db_session.started_at:
-        duration = (db_session.completed_at - db_session.started_at).total_seconds() / 60
-        db_session.duration_minutes = int(duration)
-    
-    db.commit()
-    db.refresh(db_session)
-    return db_session
+    try:
+        db_session = db.query(models.WorkoutSession).filter(
+            models.WorkoutSession.id == session_id
+        ).first()
+        if db_session is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        db_session.completed_at = datetime.utcnow()
+        if db_session.started_at:
+            duration = (db_session.completed_at - db_session.started_at).total_seconds() / 60
+            db_session.duration_minutes = int(duration)
+        
+        db.commit()
+        db.refresh(db_session)
+        return db_session
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Error completing session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to complete session: {str(e)}")
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_session(session_id: int, db: Session = Depends(get_db)):
