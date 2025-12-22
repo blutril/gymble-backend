@@ -166,8 +166,19 @@ class SessionExerciseCreate(BaseModel):
     best_set_reps: Optional[int] = None
     avg_rpe: Optional[float] = None
 
-class SessionExercise(SessionExerciseBase):
+class SessionExercise(BaseModel):
     id: int
+    exercise_id: int
+    sets_completed: int
+    reps_completed: int
+    weight: float
+    notes: Optional[str] = None
+    sets_data: Optional[str] = None  # Keep as string in response
+    time_under_tension: Optional[float] = None
+    total_volume: Optional[float] = None
+    best_set_weight: Optional[float] = None
+    best_set_reps: Optional[int] = None
+    avg_rpe: Optional[float] = None
     exercise: Exercise
     
     class Config:
@@ -208,3 +219,4 @@ class WorkoutSession(WorkoutSessionBase):
     
     class Config:
         from_attributes = True
+        use_enum_values = True

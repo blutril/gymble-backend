@@ -318,3 +318,83 @@ class WorkoutAnalytics:
             'volume_pr': WorkoutAnalytics.get_personal_records(db, user_id, exercise_id, "volume"),
             'estimated_1rm_pr': WorkoutAnalytics.get_personal_records(db, user_id, exercise_id, "1rm"),
         }
+    
+    @staticmethod
+    def is_new_pr(
+        db: Session,
+        user_id: int,
+        exercise_id: int,
+        weight: float,
+        reps: int,
+        exclude_session_id: Optional[int] = None
+    ) -> Dict[str, bool]:
+        """
+        Check if a set is a new personal record
+        Returns dict with keys: 'weight_pr', 'reps_pr', 'volume_pr', '1rm_pr'
+        """
+        is_pr = {
+            'weight_pr': False,
+            'reps_pr': False,
+            'volume_pr': False,
+            '1rm_pr': False
+        }
+        
+        if weight <= 0 or reps <= 0:
+            return is_pr
+        
+        # Get previous sessions (excluding current session if provided)
+        sessions = db.query(models.WorkoutSession).filter(
+            models.WorkoutSession.user_id == user_id
+        ).all()
+        
+        prev_weight_pr = 0
+        prev_reps_pr = 0
+        prev_volume_pr = 0
+        prev_1rm_pr = 0
+        
+        for session in sessions:
+            if exclude_session_id and session.id == exclude_session_id:
+                continue
+            if not session.completed_at:
+                continue
+                
+            for exercise in session.exercises:
+                if exercise.exercise_id != exercise_id:
+                    continue
+                
+                sets_data = WorkoutAnalytics.parse_sets_data(exercise.sets_data)
+                
+                # Check weight PR
+                max_weight = max([s.get('weight', 0) for s in sets_data], default=0)
+                if max_weight > prev_weight_pr:
+                    prev_weight_pr = max_weight
+                
+                # Check reps PR (at same weight or more)
+                for s in sets_data:
+                    if s.get('weight', 0) >= weight and s.get('reps', 0) > prev_reps_pr:
+                        prev_reps_pr = s.get('reps', 0)
+                
+                # Check volume PR
+                if exercise.total_volume and exercise.total_volume > prev_volume_pr:
+                    prev_volume_pr = exercise.total_volume
+                
+                # Check 1RM PR
+                best_set = WorkoutAnalytics.get_best_set(sets_data)
+                if best_set:
+                    one_rm = WorkoutAnalytics.calculate_one_rm_brzycki(
+                        best_set.get('weight', 0),
+                        best_set.get('reps', 1)
+                    )
+                    if one_rm > prev_1rm_pr:
+                        prev_1rm_pr = one_rm
+        
+        # Check if current set is a PR
+        current_1rm = WorkoutAnalytics.calculate_one_rm_brzycki(weight, reps)
+        current_volume = weight * reps
+        
+        is_pr['weight_pr'] = weight > prev_weight_pr
+        is_pr['reps_pr'] = reps > prev_reps_pr
+        is_pr['volume_pr'] = current_volume > prev_volume_pr
+        is_pr['1rm_pr'] = current_1rm > prev_1rm_pr
+        
+        return is_pr

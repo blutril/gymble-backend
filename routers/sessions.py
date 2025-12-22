@@ -77,6 +77,13 @@ def update_session(
     db: Session = Depends(get_db)
 ):
     try:
+        print(f"\n=== UPDATE SESSION {session_id} ===")
+        print(f"Session update data: {session_update}")
+        if session_update.exercises:
+            print(f"Number of exercises: {len(session_update.exercises)}")
+            for i, ex in enumerate(session_update.exercises):
+                print(f"Exercise {i}: {ex}")
+        
         db_session = db.query(models.WorkoutSession).filter(
             models.WorkoutSession.id == session_id
         ).first()
@@ -112,6 +119,8 @@ def update_session(
                     }
                     filtered_dict = {k: v for k, v in exercise_dict.items() if k in valid_fields}
                     
+                    print(f"Adding exercise with data: {filtered_dict}")
+                    
                     db_session_exercise = models.SessionExercise(
                         session_id=session_id,
                         **filtered_dict
@@ -120,16 +129,27 @@ def update_session(
                 except Exception as e:
                     db.rollback()
                     print(f"Error adding exercise: {e}")
+                    import traceback
+                    traceback.print_exc()
                     raise HTTPException(status_code=400, detail=f"Error adding exercise: {str(e)}")
         
         db.commit()
-        db.refresh(db_session)
+        # Refresh with eager loading to ensure all relationships are populated for response
+        db_session = db.query(models.WorkoutSession).options(
+            selectinload(models.WorkoutSession.exercises).selectinload(models.SessionExercise.exercise),
+            selectinload(models.WorkoutSession.workout)
+        ).filter(
+            models.WorkoutSession.id == session_id
+        ).first()
         return db_session
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
         print(f"Error updating session: {str(e)}")
+        import traceback
+        print("Full traceback:")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to update session: {str(e)}")
 
 @router.post("/{session_id}/complete", response_model=schemas.WorkoutSession)
@@ -301,4 +321,64 @@ def get_weekly_stats(
     return {
         'user_id': user_id,
         'weeks': stats
+    }
+
+@router.get("/user/{user_id}/all-prs", status_code=status.HTTP_200_OK)
+def get_all_personal_records(user_id: int, db: Session = Depends(get_db)):
+    """Get all personal records for all exercises"""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get all unique exercises the user has trained
+    exercises = db.query(models.Exercise).join(
+        models.SessionExercise
+    ).join(
+        models.WorkoutSession
+    ).filter(
+        models.WorkoutSession.user_id == user_id
+    ).distinct().all()
+    
+    prs = {}
+    for exercise in exercises:
+        pr_summary = WorkoutAnalytics.get_exercise_pr_summary(db, user_id, exercise.id)
+        prs[exercise.name] = {
+            'exercise_id': exercise.id,
+            'exercise_name': exercise.name,
+            'muscle_group': exercise.muscle_group,
+            'weight_pr': pr_summary['weight_pr'],
+            'reps_pr': pr_summary['reps_pr'],
+            'volume_pr': pr_summary['volume_pr'],
+            '1rm_pr': pr_summary['estimated_1rm_pr'],
+        }
+    
+    return {'user_id': user_id, 'personal_records': prs}
+
+@router.post("/user/{user_id}/check-pr", status_code=status.HTTP_200_OK)
+def check_personal_record(
+    user_id: int,
+    exercise_id: int,
+    weight: float,
+    reps: int,
+    db: Session = Depends(get_db)
+):
+    """Check if a set is a new personal record"""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    is_pr = WorkoutAnalytics.is_new_pr(db, user_id, exercise_id, weight, reps)
+    
+    # Determine which PR(s) were achieved
+    prs_achieved = [k for k, v in is_pr.items() if v]
+    has_pr = len(prs_achieved) > 0
+    
+    return {
+        'user_id': user_id,
+        'exercise_id': exercise_id,
+        'weight': weight,
+        'reps': reps,
+        'is_personal_record': has_pr,
+        'prs_achieved': prs_achieved,
+        'details': is_pr
     }
