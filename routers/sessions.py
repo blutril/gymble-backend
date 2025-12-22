@@ -135,7 +135,10 @@ def update_session(
 @router.post("/{session_id}/complete", response_model=schemas.WorkoutSession)
 def complete_session(session_id: int, db: Session = Depends(get_db)):
     try:
-        db_session = db.query(models.WorkoutSession).filter(
+        db_session = db.query(models.WorkoutSession).options(
+            selectinload(models.WorkoutSession.exercises).selectinload(models.SessionExercise.exercise),
+            selectinload(models.WorkoutSession.workout)
+        ).filter(
             models.WorkoutSession.id == session_id
         ).first()
         if db_session is None:
@@ -153,7 +156,9 @@ def complete_session(session_id: int, db: Session = Depends(get_db)):
         raise
     except Exception as e:
         db.rollback()
+        import traceback
         print(f"Error completing session: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Failed to complete session: {str(e)}")
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
